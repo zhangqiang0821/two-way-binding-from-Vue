@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>单向绑定</title>
+</head>
+<body>
+    <div id="app">
+        <input type="text" v-model="msg">
+        <p>{{msg}}</p>
+        <ul>
+            <li>1</li>
+            <li>{{msg}}</li>
+            <li>{{test}}</li>
+        </ul>
+    </div>
+    <script>
+        //判断每个dom节点是否拥有子节点，若有则返回该节点
+        function isChild(node){
+            if(node.childNodes.length ===0){
+                return false;
+            }
+            else{
+                return node;
+            }
+        }
+
+        //利用文档碎片劫持dom结构及数据，进而进行dom的重构
+        function nodeToFragment(node,vm){
+            var frag = document.createDocumentFragment();
+            var child;
+            while(child = node.firstChild){
+                //一级dom节点数据绑定
+                compile(child,vm);
+                //判断每个一级dom节点是否有二级节点，若有则递归处理文档碎片
+                if(isChild(child)){
+                    nodeToFragment(isChild(child),vm);
+                }
+                frag.appendChild(child);
+            }
+            node.appendChild(frag);
+        }
+
+        //初始化绑定数据
+        function compile(node,vm){
+            //node节点为元素节点时
+            if(node.nodeType === 1){
+                var attr = node.attributes;
+                for(var i=0;i<attr.length;i++){
+                    if(attr[i].nodeName === 'v-model'){
+                        var name = attr[i].nodeValue;
+                        node.value = vm.data[name];
+                        node.removeAttribute(attr[i].nodeName);
+                    }
+                }
+            }
+
+            //node节点为text文本节点时
+            if(node.nodeType === 3){
+                var reg = /\{\{(.*)\}\}/;
+                if(reg.test(node.nodeValue.trim())){
+                    var name = RegExp.$1;
+                    node.nodeValue = vm.data[name];
+                }
+            }
+        }
+
+        //MVVM构造函数,这里我就写成Vue了
+        function Vue(options){
+            this.id = options.el;
+            this.data = options.data;
+            nodeToFragment(document.getElementById(this.id),this);
+        }
+
+        var vm = new Vue({
+            el:'app',
+            data:{
+                msg:'hello,two-ways-binding',
+                test:'test key'
+            }
+        })
+    </script>
+</body>
+</html>

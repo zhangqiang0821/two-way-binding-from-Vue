@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>双向绑定</title>
+</head>
+<body>
+    <div id="app">
+        <input type="text" v-model="msg">
+        <p>{{msg}}</p>
+        <ul>
+            <li>1</li>
+            <li>{{msg}}</li>
+            <li>{{test}}</li>
+        </ul>
+    </div>
+    <script>
+        //判断每个dom节点是否拥有子节点，若有则返回该节点
+        function isChild(node){
+            if(node.childNodes.length ===0){
+                return false;
+            }
+            else{
+                return node;
+            }
+        }
+
+        //利用文档碎片劫持dom结构及数据，进而进行dom的重构
+        function nodeToFragment(node,vm){
+            var frag = document.createDocumentFragment();
+            var child;
+            while(child = node.firstChild){
+                //一级dom节点数据绑定
+                compile(child,vm);
+                //判断每个一级dom节点是否有二级节点，若有则递归处理文档碎片
+                if(isChild(child)){
+                    nodeToFragment(isChild(child),vm);
+                }
+                frag.appendChild(child);
+            }
+            node.appendChild(frag);
+        }
+
+        //初始化绑定数据
+        function compile(node,vm){
+            //node节点为元素节点时
+            if(node.nodeType === 1){
+                var attr = node.attributes;
+                for(var i=0;i<attr.length;i++){
+                    if(attr[i].nodeName === 'v-model'){
+                        var name = attr[i].nodeValue;
+                        //特殊处理input标签
+                        if(node.nodeName === 'INPUT'){
+                            node.addEventListener('keyup',function(e){
+                                vm[name] = e.target.value;
+                            })
+                        }
+                        node.value = vm[name];
+                        node.removeAttribute(attr[i].nodeName);
+                    }
+                }
+            }
+
+            //node节点为text文本节点时
+            if(node.nodeType === 3){
+                var reg = /\{\{(.*)\}\}/;
+                if(reg.test(node.nodeValue.trim())){
+                    var name = RegExp.$1;
+//                    node.nodeValue = vm[name];
+                    //为每个节点建立订阅者
+                    new watcher(vm,node,name);
+                }
+            }
+        }
+
+        //订阅者(为每个节点的数据建立watcher队列，每次接受更改数据需求后，利用劫持数据执行对应节点的数据更新)
+        function watcher(vm,node,name){
+            //将每个挂载了数据的dom节点添加到通知者列表，要保证每次创建watcher时只有一个添加目标，否则后续会因为watcher是全局而被覆盖，所以每次要清空目标
+            Dep.target = this;
+            this.vm = vm;
+            this.node = node;
+            this.name = name;
+            //执行update的时候会调用监听者劫持的getter事件，因为update中有访问this.vm[this.name]
+            this.update();
+            Dep.target = null;
+        }
+
+        watcher.prototype = {
+            update(){
+                //input标签特殊处理化
+                this.get();
+                if(this.node.nodeName === 'INPUT'){
+                    this.node.value = this.value;
+                }
+                else{
+                    this.node.nodeValue = this.value;
+                }
+            },
+            get(){
+                //这里调用了数据劫持的getter
+                this.value = this.vm[this.name];
+            }
+        };
+
+        //通知者(将监听者的更改信息需求发送给订阅者，告诉订阅者哪些数据需要更改)
+        function Dep(){
+            this.subs = [];
+        }
+
+        Dep.prototype = {
+            addSub(watcher){
+                //添加用到数据的节点进入watcher队列
+                this.subs.push(watcher);
+            },
+            notify(){
+                //遍历watcher队列，重新更新view层数据,model => view
+                this.subs.forEach(function(watcher){
+                    watcher.update();
+                })
+            }
+        };
+
+        //监听者(利用setter监听view => model的数据变化，发出通知更改model数据后再从model => view更新视图所有用到该数据的地方)
+        function observer(data,vm){
+            Object.keys(data).forEach(function(key){
+                defineReactive(vm,key,data[key]);
+            })
+        }
+
+        function defineReactive(vm,key,val){
+            //新建通知者
+            var dep = new Dep();
+
+            Object.defineProperty(vm,key,{
+                get(){
+                    //初始化数据更新时将每个数据的watcher添加至队列栈中
+                    if(Dep.target) dep.addSub(Dep.target);
+                    return val;
+                },
+                set(newVal){
+                    if(val === newVal) return ;
+                    val = newVal;
+                    //同步更新model中data属性下的数据
+                    vm.data[key] = val;
+                    //数据有改动时向通知者发送通知
+                    dep.notify();
+                }
+            })
+        }
+
+        function Vue(options){
+            this.id = options.el;
+            this.data = options.data;
+            observer(this.data,this);
+            nodeToFragment(document.getElementById(this.id),this);
+        }
+
+        var vm = new Vue({
+            el:'app',
+            data:{
+                msg:'hello,two-ways-binding',
+                test:'test key'
+            }
+        })
+    </script>
+</body>
+</html>
