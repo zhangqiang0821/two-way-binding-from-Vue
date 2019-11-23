@@ -1,5 +1,5 @@
-�򵥵�ʵ�ֵ������˫��󶨵�MVVMģʽ��ԭ��������vue�����ݽٳ�+���ķ���ģʽ������������о�����ȥ�鿴Vue��Դ�룬����Ҳֻ�����ڳ�ѧ�׶�~
+简单的实现单向绑定与双向绑定的MVVM模式，原理来自于vue的数据劫持+订阅发布模式，如果想深入研究可以去查看Vue的源码~
 
-one way binding.htmlΪ��ʵ�ֵ���󶨣�
+one way binding.html为简单实现单向绑定；
 
-two way binding.htmlΪ��ʵ��˫���;
+two way binding.html为简单实现双向绑定;
